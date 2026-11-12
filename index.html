@@ -5,7 +5,125 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Minha galeria interativa</title>
   <link rel="stylesheet" href="style.css">
-  <script src="script.js" defer></script>
+
+  <style>
+    .barra-slides {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 10px;
+      margin-top: 16px;
+      background-color: #f3f4f6;
+      border-top: 1px solid #d1d5db;
+      border-bottom: 1px solid #d1d5db;
+      overflow-x: auto;
+      box-sizing: border-box;
+    }
+
+    #lista-miniaturas {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .slide-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    .slide-item:hover {
+      transform: scale(1.06);
+    }
+
+    .slide-item img {
+      width: 72px;
+      height: 44px;
+      object-fit: contain;
+      background-color: #ffffff;
+      border-radius: 4px;
+      border: 2px solid #d1d5db;
+      padding: 1px;
+      transition: border-color 0.2s;
+    }
+
+    .slide-item span {
+      margin-top: 2px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #555;
+    }
+
+    .slide-item.ativa img {
+      border-color: #8b3dff;
+    }
+
+    .slide-item.ativa span {
+      color: #8b3dff;
+    }
+
+    .btn-remover {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: none;
+      background-color: #ef4444;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.15s;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+
+    .slide-item:hover .btn-remover,
+    .slide-item.ativa .btn-remover {
+      opacity: 1;
+    }
+
+    .btn-remover:hover {
+      background-color: #dc2626;
+      transform: scale(1.15);
+    }
+
+    .btn-adicionar {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 44px;
+      margin-bottom: 15px;
+      background-color: #ffffff;
+      border: 2px dashed #8b3dff;
+      border-radius: 4px;
+      color: #8b3dff;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background-color 0.2s, transform 0.15s;
+    }
+
+    .btn-adicionar:hover {
+      background-color: #f3e8ff;
+      transform: scale(1.06);
+    }
+  </style>
 </head>
 <body>
   <main class="container">
@@ -31,6 +149,13 @@
         <button id="iniciar">Iniciar apresentação</button>
         <button id="pausar">Pausar apresentação</button>
       </div>
+
+      <div class="barra-slides" aria-label="Miniaturas dos slides">
+        <div id="lista-miniaturas"></div>
+
+        <button type="button" id="btn-adicionar" class="btn-adicionar" title="Adicionar novas fotos">+</button>
+        <input type="file" id="input-fotos" accept="image/*" multiple hidden>
+      </div>
     </section>
 
     <section class="secao-principal">
@@ -47,5 +172,147 @@
       <p>Desenvolvido por: Samuel Richard Bruch</p>
     </footer>
   </main>
+
+  <script>
+    const fotos = [
+      { src: "imagens/foto1.jpg", alt: "Primeira fotografia da galeria", legenda: "Foto 1" },
+      { src: "imagens/foto2.jpg", alt: "Segunda fotografia da galeria", legenda: "Foto 2" },
+      { src: "imagens/foto3.jpg", alt: "Terceira fotografia da galeria", legenda: "Foto 3" },
+      { src: "imagens/foto4.jpg", alt: "Quarta fotografia da galeria", legenda: "Foto 4" }
+    ];
+
+    let indiceAtual = 0;
+    let intervalo = null;
+
+    const fotoPrincipal = document.getElementById("foto-principal");
+    const legenda = document.getElementById("legenda");
+    const contador = document.getElementById("contador");
+    const listaMiniaturas = document.getElementById("lista-miniaturas");
+    const btnAdicionar = document.getElementById("btn-adicionar");
+    const inputFotos = document.getElementById("input-fotos");
+
+    function removerFoto(indexRemover) {
+      if (fotos.length <= 1) {
+        alert("A galeria precisa ter pelo menos uma foto.");
+        return;
+      }
+
+      fotos.splice(indexRemover, 1);
+
+      if (indiceAtual >= fotos.length) {
+        indiceAtual = fotos.length - 1;
+      } else if (indexRemover < indiceAtual) {
+        indiceAtual--;
+      }
+
+      renderizarMiniaturas();
+      atualizarGaleria(indiceAtual);
+    }
+
+    function renderizarMiniaturas() {
+      listaMiniaturas.innerHTML = "";
+
+      fotos.forEach((foto, index) => {
+        const slide = document.createElement("div");
+        slide.className = "slide-item" + (index === indiceAtual ? " ativa" : "");
+        slide.dataset.index = index;
+
+        const btnRemover = document.createElement("button");
+        btnRemover.type = "button";
+        btnRemover.className = "btn-remover";
+        btnRemover.textContent = "×";
+        btnRemover.title = "Remover foto";
+        btnRemover.addEventListener("click", (event) => {
+          event.stopPropagation();
+          removerFoto(index);
+        });
+
+        const img = document.createElement("img");
+        img.src = foto.src;
+        img.alt = `Slide ${index + 1}`;
+
+        const numero = document.createElement("span");
+        numero.textContent = index + 1;
+
+        slide.appendChild(btnRemover);
+        slide.appendChild(img);
+        slide.appendChild(numero);
+
+        slide.addEventListener("click", () => {
+          atualizarGaleria(index);
+        });
+
+        listaMiniaturas.appendChild(slide);
+      });
+    }
+
+    function atualizarGaleria(novoIndice) {
+      indiceAtual = novoIndice;
+
+      fotoPrincipal.src = fotos[indiceAtual].src;
+      fotoPrincipal.alt = fotos[indiceAtual].alt;
+      legenda.textContent = fotos[indiceAtual].legenda;
+      contador.textContent = `Foto ${indiceAtual + 1} de ${fotos.length}`;
+
+      const slides = document.querySelectorAll(".slide-item");
+      slides.forEach((slide, index) => {
+        slide.classList.toggle("ativa", index === indiceAtual);
+      });
+    }
+
+    btnAdicionar.addEventListener("click", () => {
+      inputFotos.click();
+    });
+
+    inputFotos.addEventListener("change", (event) => {
+      const arquivos = Array.from(event.target.files);
+      if (arquivos.length === 0) return;
+
+      const primeiroNovoIndice = fotos.length;
+
+      arquivos.forEach((arquivo) => {
+        const urlTemporaria = URL.createObjectURL(arquivo);
+        const numeroFoto = fotos.length + 1;
+        const nomeSemExtensao = arquivo.name.replace(/\.[^/.]+$/, "");
+
+        fotos.push({
+          src: urlTemporaria,
+          alt: nomeSemExtensao,
+          legenda: `Foto ${numeroFoto} - ${nomeSemExtensao}`
+        });
+      });
+
+      renderizarMiniaturas();
+      atualizarGaleria(primeiroNovoIndice);
+      inputFotos.value = "";
+    });
+
+    document.getElementById("anterior").addEventListener("click", () => {
+      const novoIndice = (indiceAtual - 1 + fotos.length) % fotos.length;
+      atualizarGaleria(novoIndice);
+    });
+
+    document.getElementById("proxima").addEventListener("click", () => {
+      const novoIndice = (indiceAtual + 1) % fotos.length;
+      atualizarGaleria(novoIndice);
+    });
+
+    document.getElementById("iniciar").addEventListener("click", () => {
+      if (!intervalo) {
+        intervalo = setInterval(() => {
+          const novoIndice = (indiceAtual + 1) % fotos.length;
+          atualizarGaleria(novoIndice);
+        }, 3000);
+      }
+    });
+
+    document.getElementById("pausar").addEventListener("click", () => {
+      clearInterval(intervalo);
+      intervalo = null;
+    });
+
+    renderizarMiniaturas();
+    atualizarGaleria(0);
+  </script>
 </body>
 </html>
